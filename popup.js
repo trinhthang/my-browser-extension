@@ -1,15 +1,18 @@
-const DEFAULTS = { sites: [], reader: false, font: '', scale: 100, stealth: true, fonts: [], theme: 'system' };
+const SITE_DEFAULTS = { reader: true, font: '', scale: 100, stealth: true, theme: 'system', keepColors: false };
 const FALLBACK_FONTS = [
   'Arial', 'Calibri', 'Cambria', 'Candara', 'Consolas', 'Constantia', 'Corbel',
   'Courier New', 'Georgia', 'Segoe UI', 'Tahoma', 'Times New Roman', 'Trebuchet MS', 'Verdana'
 ];
 
 const $ = id => document.getElementById(id);
-const save = patch => chrome.storage.local.set(patch);
 
 let host = '';
 let tabId = null;
-let state = DEFAULTS;
+let sites = {};   // hostname -> config riêng
+let fonts = [];   // danh sách font hệ thống, dùng chung mọi trang
+let state = { ...SITE_DEFAULTS };  // config của host đang xem
+
+const enabled = () => !!host && host in sites;
 
 const reload = () => { if (tabId != null) chrome.tabs.reload(tabId); };
 
@@ -19,25 +22,33 @@ const preview = patch => {
   if (tabId != null) chrome.tabs.sendMessage(tabId, { type: 'tvt1:preview', patch }).catch(() => {});
 };
 
+const saveSites = () => chrome.storage.local.set({ sites });
+
 // Kéo slider bắn hàng trăm event; chỉ ghi storage khi ngơi tay.
 let saveTimer = null;
-const saveLater = patch => {
+const saveLater = () => {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => save(patch), 150);
+  saveTimer = setTimeout(saveSites, 150);
 };
 
+// state và sites[host] là cùng một object, sửa state là sửa luôn config của host.
+const put = patch => Object.assign(state, patch);
+
 function renderSite() {
-  const has = state.sites.includes(host);
+  const has = enabled();
   $('host').textContent = host || 'Trang này không áp dụng được';
   $('toggleSite').textContent = has ? 'Xóa khỏi danh sách' : 'Thêm vào danh sách';
   $('toggleSite').classList.toggle('danger', has);
   $('toggleSite').disabled = !host;
   $('siteCard').classList.toggle('on', has);
-  $('count').textContent = `Danh sách áp dụng: ${state.sites.length} trang`;
+  $('cfg').disabled = !has;
+  $('count').textContent = has
+    ? `Cấu hình riêng cho trang này · tổng ${Object.keys(sites).length} trang`
+    : `Chưa áp dụng · tổng ${Object.keys(sites).length} trang`;
 }
 
 function renderFonts() {
-  const list = state.fonts.length ? state.fonts : FALLBACK_FONTS;
+  const list = fonts.length ? fonts : FALLBACK_FONTS;
   const sel = $('font');
   sel.innerHTML = '<option value="">(Mặc định)</option>';
   for (const f of list) {
@@ -47,8 +58,8 @@ function renderFonts() {
     sel.appendChild(o);
   }
   sel.value = state.font;
-  $('fontMsg').textContent = state.fonts.length
-    ? `${state.fonts.length} font hệ thống`
+  $('fontMsg').textContent = fonts.length
+    ? `${fonts.length} font hệ thống`
     : 'Đang dùng danh sách font phổ biến.';
 }
 
@@ -60,53 +71,61 @@ function render() {
   $('scale').value = state.scale;
   $('scaleVal').textContent = state.scale;
   $('theme').value = state.theme;
+  $('keepColors').checked = state.keepColors;
+  $('theme').disabled = state.keepColors;
   renderFonts();
 }
 
 $('toggleSite').addEventListener('click', () => {
   if (!host) return;
-  const sites = state.sites.includes(host)
-    ? state.sites.filter(s => s !== host)
-    : [...state.sites, host];
-  state.sites = sites;
-  save({ sites });
-  renderSite();
+  // Xóa rồi thêm lại: config cũ mất, quay về mặc định. Đơn giản hơn là giữ mồ côi trong storage.
+  if (host in sites) { delete sites[host]; state = { ...SITE_DEFAULTS }; }
+  else sites[host] = state;
+  saveSites();
+  render();
   reload();
 });
 
 $('reader').addEventListener('change', e => {
-  state.reader = e.target.checked;
+  put({ reader: e.target.checked });
   $('opts').hidden = !state.reader;
-  save({ reader: state.reader });
+  saveSites();
   reload();
 });
 
 // Tắt "Xóa vết" cần reload để trang trả lại title/favicon thật.
 $('stealth').addEventListener('change', e => {
-  state.stealth = e.target.checked;
-  save({ stealth: state.stealth });
+  put({ stealth: e.target.checked });
+  saveSites();
   reload();
 });
 
 // Font + cỡ chữ áp dụng sống qua storage.onChanged trong content.js, không reload tab.
 $('font').addEventListener('change', e => {
-  state.font = e.target.value;
+  put({ font: e.target.value });
   preview({ font: state.font });
-  save({ font: state.font });
+  saveSites();
 });
 
 $('scale').addEventListener('input', e => {
   const scale = Number(e.target.value);
   $('scaleVal').textContent = scale;
-  state.scale = scale;
+  put({ scale });
   preview({ scale });
-  saveLater({ scale });
+  saveLater();
 });
 
 $('theme').addEventListener('change', e => {
-  state.theme = e.target.value;
+  put({ theme: e.target.value });
   preview({ theme: state.theme });
-  save({ theme: state.theme });
+  saveSites();
+});
+
+$('keepColors').addEventListener('change', e => {
+  put({ keepColors: e.target.checked });
+  $('theme').disabled = state.keepColors;
+  preview({ keepColors: state.keepColors });
+  saveSites();
 });
 
 // Local Font Access API: needs a user gesture, so it lives behind a button.
@@ -117,9 +136,8 @@ $('loadFonts').addEventListener('click', async () => {
   }
   try {
     const found = await window.queryLocalFonts();
-    const fonts = [...new Set(found.map(f => f.family))].sort();
-    state.fonts = fonts;
-    save({ fonts });
+    fonts = [...new Set(found.map(f => f.family))].sort();
+    chrome.storage.local.set({ fonts });
     renderFonts();
   } catch (err) {
     $('fontMsg').textContent = 'Không đọc được font: ' + err.message;
@@ -127,9 +145,21 @@ $('loadFonts').addEventListener('click', async () => {
 });
 
 (async () => {
-  state = await chrome.storage.local.get(DEFAULTS);
+  const stored = await chrome.storage.local.get({ sites: {}, fonts: [] });
+  fonts = stored.fonts;
+  // Bản cũ lưu sites là mảng hostname + config chung. Chuyển sang config riêng từng trang.
+  if (Array.isArray(stored.sites)) {
+    const old = await chrome.storage.local.get(SITE_DEFAULTS);
+    sites = Object.fromEntries(stored.sites.map(h => [h, { ...old }]));
+    chrome.storage.local.set({ sites });
+  } else {
+    sites = stored.sites;
+  }
+
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   tabId = tab?.id ?? null;
   try { host = new URL(tab.url).hostname; } catch { host = ''; }
+
+  state = sites[host] || { ...SITE_DEFAULTS };
   render();
 })();

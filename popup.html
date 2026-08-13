@@ -77,6 +77,10 @@
   }
   button.ghost:hover { background: var(--accent-soft); }
 
+  /* fieldset[disabled] khóa sẵn mọi input bên trong, không cần disable từng cái. */
+  #cfg { border: 0; margin: 0; padding: 0; min-width: 0; }
+  #cfg:disabled { opacity: .5; }
+
   .small { font-size: 11px; color: var(--muted); line-height: 1.4; }
   #count { margin-top: 8px; }
 
@@ -149,6 +153,7 @@
     <div class="small" id="count"></div>
   </div>
 
+  <fieldset id="cfg" disabled>
   <div class="card">
     <label class="toggle">
       <input type="checkbox" id="reader">
@@ -172,6 +177,15 @@
         <option value="light">Sáng</option>
         <option value="dark">Tối</option>
       </select>
+
+      <label class="toggle" style="margin-top:12px">
+        <input type="checkbox" id="keepColors">
+        <span class="track"></span>
+        <span class="toggle-text">Giữ màu gốc của trang</span>
+      </label>
+      <div class="small" style="margin-top:6px">
+        Cho trang đã có dark mode riêng (Facebook, YouTube…). Bật thì “Chế độ màu” không dùng nữa.
+      </div>
     </div>
   </div>
 
@@ -185,6 +199,7 @@
       Xóa favicon và đổi title tab thành “my-browser-extension tab N”.
     </div>
   </div>
+  </fieldset>
 
   <script src="popup.js"></script>
 </body>

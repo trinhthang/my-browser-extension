@@ -1,4 +1,6 @@
-const DEFAULTS = { sites: [], reader: false, font: '', scale: 100, stealth: true, theme: 'system' };
+// Mỗi hostname có config riêng: storage.sites = { "example.com": {...SITE_DEFAULTS} }.
+// Không có key = không áp dụng gì cho trang đó.
+const SITE_DEFAULTS = { reader: true, font: '', scale: 100, stealth: true, theme: 'system', keepColors: false, desat: false };
 const STYLE_ID = '__tvt1_style';
 
 /* ---------- Tối ưu hóa đọc nội dung ---------- */
@@ -21,6 +23,9 @@ const IFRAME_KEEP =
 // Map thay vì nội suy thẳng s.theme vào CSS — chặn luôn khả năng chuỗi lạ trong storage
 // đóng được rule. 'light dark' = element hỗ trợ cả hai, trình duyệt chọn theo OS.
 const COLOR_SCHEME = { light: 'light', dark: 'dark', system: 'light dark' };
+// light-dark() cần Chrome 123+. Nhánh tối lấy màu Facebook dark mode.
+const FG = 'light-dark(CanvasText,#E2E5E9)';
+const BG = 'light-dark(Canvas,#18191A)';
 const PLACEHOLDER =
   'url("data:image/svg+xml,' + encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24">' +
@@ -65,24 +70,36 @@ function applyReader(s) {
     `:is(${INTERACTIVE}) :is(video,audio,object,embed){` +
       'width:1em!important;height:1em!important;' +
       'min-width:0!important;min-height:0!important;opacity:0!important}',
-    // Ảnh nền: bỏ ảnh, giữ element. Thắng cả inline style vì author !important > inline.
-    '*,*::before,*::after{background-image:none!important}',
-    // Nền màu + chữ màu (xanh/đỏ/tím/vàng) về mặc định. Canvas/CanvasText là system color
-    // của trình duyệt nên tự theo sáng/tối, không cần tự chọn cặp màu.
-    // ponytail: link mất màu luôn — thêm `a{color:LinkText!important}` nếu cần phân biệt.
-    '*,*::before,*::after{background-color:transparent!important;color:CanvasText!important}',
-    'html{background-color:Canvas!important}',
-    // Quyết định Canvas/CanvasText ngả sáng hay tối. Kéo theo cả form control và scrollbar,
-    // không cần rule riêng. !important vì site hay khai :root{color-scheme:light}
-    // (specificity cao hơn html).
-    // ponytail: chỉ chạy cùng reader mode. Muốn tối khi reader tắt thì cần
-    // html{filter:invert(1) hue-rotate(180deg)} + re-invert media — nhiều code hơn hẳn.
-    `html{color-scheme:${COLOR_SCHEME[s.theme] || 'light dark'}!important}`,
     `iframe${IFRAME_KEEP}{display:none!important}`,
     // ponytail: zoom scales spacing along with text. Fine here because reader mode
     // leaves text only. Swap to a per-element font-size walk if spacing must stay fixed.
     `html{zoom:${Number(s.scale || 100) / 100}}`
   ];
+  // Giảm sặc sỡ: kéo bão hòa xuống thay vì bỏ màu, nên chạy được cả khi "Giữ màu gốc" bật.
+  // filter trên root element không tạo containing block, position:fixed vẫn bám viewport.
+  // ponytail: một con số cho cả trang. Đổi thành slider nếu cần chỉnh tay.
+  if (s.desat) rules.push('html{filter:saturate(.3)!important}');
+  // "Giữ màu gốc": trang tự có dark/light mode rồi thì đừng đụng vào màu, kể cả color-scheme.
+  // Ảnh/media vẫn ẩn, font/cỡ chữ vẫn áp — chỉ phần màu là bỏ qua.
+  if (!s.keepColors) {
+    rules.push(
+      // Ảnh nền: bỏ ảnh, giữ element. Thắng cả inline style vì author !important > inline.
+      '*,*::before,*::after{background-image:none!important}',
+      // Nền màu + chữ màu (xanh/đỏ/tím/vàng) về mặc định. light-dark() chọn theo color-scheme
+      // ở rule dưới, nên 'system' cũng tự đúng — không cần media query riêng.
+      // Sáng: system color của trình duyệt. Tối: cặp màu của Facebook dark mode, vì
+      // Canvas mặc định là đen tuyền, chói và bệt.
+      // ponytail: link mất màu luôn — thêm `a{color:LinkText!important}` nếu cần phân biệt.
+      `*,*::before,*::after{background-color:transparent!important;color:${FG}!important}`,
+      `html{background-color:${BG}!important}`,
+      // Quyết định Canvas/CanvasText ngả sáng hay tối. Kéo theo cả form control và scrollbar,
+      // không cần rule riêng. !important vì site hay khai :root{color-scheme:light}
+      // (specificity cao hơn html).
+      // ponytail: chỉ chạy cùng reader mode. Muốn tối khi reader tắt thì cần
+      // html{filter:invert(1) hue-rotate(180deg)} + re-invert media — nhiều code hơn hẳn.
+      `html{color-scheme:${COLOR_SCHEME[s.theme] || 'light dark'}!important}`
+    );
+  }
   // ponytail: đè cả icon font (FontAwesome/Material) thành tofu. Miễn trừ [class*=icon] nếu cần.
   if (s.font) rules.push(`*{font-family:${JSON.stringify(s.font)}!important}`);
   setCss(rules.join('\n'));
@@ -160,19 +177,22 @@ function stopStealth() {
 
 /* ---------- Điều phối ---------- */
 
-let cur = { ...DEFAULTS };
+// null = host không nằm trong danh sách.
+let cur = null;
 
 function apply(s) {
   cur = s;
-  const on = !!location.hostname && s.sites.includes(location.hostname);
 
-  if (on && s.reader) applyReader(s); else { readerOn = false; setCss(''); }
+  if (s?.reader) applyReader(s); else { readerOn = false; setCss(''); }
 
   // Title/favicon là của tab, chỉ frame trên cùng mới đụng tới.
-  if (on && s.stealth && window.top === window) startStealth(); else stopStealth();
+  if (s?.stealth && window.top === window) startStealth(); else stopStealth();
 }
 
-const refresh = () => chrome.storage.local.get(DEFAULTS, apply);
+const refresh = () => chrome.storage.local.get({ sites: {} }, ({ sites }) => {
+  const cfg = location.hostname && sites[location.hostname];
+  apply(cfg ? { ...SITE_DEFAULTS, ...cfg } : null);
+});
 
 refresh();
 chrome.storage.onChanged.addListener(refresh);
@@ -180,5 +200,6 @@ document.addEventListener('DOMContentLoaded', refresh);
 
 // Popup đẩy thẳng giá trị sang đây khi đang kéo slider — không chờ storage round-trip.
 chrome.runtime.onMessage.addListener(msg => {
-  if (msg?.type === 'tvt1:preview') apply({ ...cur, ...msg.patch });
+  // Popup chỉ preview khi host đã có trong danh sách, nên cur null thì lấy mặc định.
+  if (msg?.type === 'tvt1:preview') apply({ ...SITE_DEFAULTS, ...cur, ...msg.patch });
 });
