@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "my-browser-extension",
+  "version": "1.0.0",
+  "description": "Tien ich da dung: toi uu hoa doc noi dung cho cac trang web trong danh sach ap dung.",
+  "permissions": ["storage", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "icons": {
+    "16": "earth-day_2573757.png",
+    "48": "earth-day_2573757.png",
+    "128": "earth-day_2573757.png"
+  },
+  "action": {
+    "default_title": "my-browser-extension",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "earth-day_2573757.png",
+      "48": "earth-day_2573757.png",
+      "128": "earth-day_2573757.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ]
+}

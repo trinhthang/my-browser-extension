@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: #ffffff;
+    --card: #f6f7f9;
+    --border: #e3e5e9;
+    --text: #14161a;
+    --muted: #6b7280;
+    --accent: #3b6ef5;
+    --accent-soft: #e8eeff;
+    --danger: #d94a4a;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1b1d21;
+      --card: #24272c;
+      --border: #34383f;
+      --text: #e9eaec;
+      --muted: #9aa1ac;
+      --accent: #6b93ff;
+      --accent-soft: #2b3550;
+      --danger: #e06c6c;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    width: 320px;
+    margin: 0;
+    padding: 14px;
+    background: var(--bg);
+    color: var(--text);
+    font: 13px/1.45 system-ui, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .logo {
+    width: 22px; height: 22px; border-radius: 6px; flex: none;
+    background: linear-gradient(135deg, var(--accent), #9b6bff);
+  }
+  h1 { font-size: 13px; font-weight: 600; margin: 0; letter-spacing: .2px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+
+  .host {
+    font-weight: 600; font-size: 13px; word-break: break-all;
+    display: flex; align-items: center; gap: 6px; margin-bottom: 10px;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex: none; transition: background .18s; }
+  .on .dot { background: #35c07a; }
+
+  button {
+    width: 100%; padding: 8px 10px;
+    font: inherit; font-weight: 500; color: #fff;
+    background: var(--accent); border: 0; border-radius: 8px;
+    cursor: pointer;
+    transition: filter .15s, transform .08s, background .18s;
+  }
+  button:hover:not(:disabled) { filter: brightness(1.08); }
+  button:active:not(:disabled) { transform: scale(.98); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.danger { background: var(--danger); }
+  button.ghost {
+    background: transparent; color: var(--accent);
+    border: 1px solid var(--border); font-weight: 500; padding: 6px 10px;
+  }
+  button.ghost:hover { background: var(--accent-soft); }
+
+  .small { font-size: 11px; color: var(--muted); line-height: 1.4; }
+  #count { margin-top: 8px; }
+
+  /* Toggle */
+  .toggle { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+  .toggle input { position: absolute; opacity: 0; pointer-events: none; }
+  .track {
+    width: 34px; height: 20px; flex: none;
+    background: var(--border); border-radius: 999px;
+    position: relative; transition: background .2s;
+  }
+  .track::after {
+    content: ""; position: absolute; top: 2px; left: 2px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);
+    transition: transform .2s cubic-bezier(.3,.9,.4,1);
+  }
+  .toggle input:checked + .track { background: var(--accent); }
+  .toggle input:checked + .track::after { transform: translateX(14px); }
+  .toggle input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .toggle-text { font-weight: 500; }
+
+  /* Options panel */
+  #opts { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  #opts[hidden] { display: none; }
+  #opts:not([hidden]) { animation: reveal .2s ease-out; }
+  @keyframes reveal { from { opacity: 0; transform: translateY(-4px); } }
+
+  label.field { display: block; font-size: 11px; color: var(--muted); margin: 10px 0 5px; }
+  label.field:first-child { margin-top: 0; }
+
+  select {
+    width: 100%; padding: 7px 8px;
+    font: inherit; color: var(--text);
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    cursor: pointer; transition: border-color .15s;
+  }
+  select:hover, select:focus { border-color: var(--accent); outline: none; }
+
+  .val { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  input[type=range] {
+    width: 100%; height: 18px; margin: 0;
+    appearance: none; background: transparent; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 4px; border-radius: 999px; background: var(--border);
+  }
+  input[type=range]::-webkit-slider-thumb {
+    appearance: none; margin-top: -6px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--accent); border: 2px solid var(--bg);
+    box-shadow: 0 1px 3px rgba(0,0,0,.25);
+    transition: transform .12s;
+  }
+  input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.15); }
+  input[type=range]:active::-webkit-slider-thumb { transform: scale(1.25); }
+  .ticks { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
+</style>
+</head>
+<body>
+  <header>
+    <div class="logo"></div>
+    <h1>my-browser-extension</h1>
+  </header>
+
+  <div class="card" id="siteCard">
+    <div class="host"><span class="dot"></span><span id="host">—</span></div>
+    <button id="toggleSite">Thêm vào danh sách</button>
+    <div class="small" id="count"></div>
+  </div>
+
+  <div class="card">
+    <label class="toggle">
+      <input type="checkbox" id="reader">
+      <span class="track"></span>
+      <span class="toggle-text">Tối ưu hóa đọc nội dung</span>
+    </label>
+
+    <div id="opts" hidden>
+      <label class="field" for="font">Font chữ</label>
+      <select id="font"><option value="">(Mặc định)</option></select>
+      <button class="ghost" id="loadFonts" style="margin-top:6px">Tải font đã cài trong máy</button>
+      <div class="small" id="fontMsg" style="margin-top:5px"></div>
+
+      <label class="field" for="scale">Cỡ chữ · <span class="val" id="scaleVal">100</span>%</label>
+      <input type="range" id="scale" min="10" max="200" step="5" value="100">
+      <div class="ticks"><span>10%</span><span>100%</span><span>200%</span></div>
+
+      <label class="field" for="theme">Chế độ màu</label>
+      <select id="theme">
+        <option value="system">Theo hệ thống</option>
+        <option value="light">Sáng</option>
+        <option value="dark">Tối</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="card">
+    <label class="toggle">
+      <input type="checkbox" id="stealth">
+      <span class="track"></span>
+      <span class="toggle-text">Xóa vết</span>
+    </label>
+    <div class="small" style="margin-top:8px">
+      Xóa favicon và đổi title tab thành “my-browser-extension tab N”.
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

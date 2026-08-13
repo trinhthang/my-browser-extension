@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Fixture — Tối ưu hóa đọc nội dung</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; max-width: 640px; margin: 20px auto; padding: 0 12px; }
+  .case { border: 1px solid #ccc; padding: 10px; margin: 10px 0; }
+  .case b { display: block; margin-bottom: 6px; }
+  .expect { font-size: 12px; color: #666; }
+  .hit { color: #0a0; font-weight: 600; }
+  .hero { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='%23f0a'/%3E%3C/svg%3E"); padding: 24px; }
+</style>
+</head>
+<body>
+<h1>Fixture reader mode</h1>
+<p>Thêm host này vào danh sách rồi bật "Tối ưu hóa đọc nội dung". Bấm vào các nút để xem log.</p>
+<pre id="log">(chưa bấm gì)</pre>
+
+<div class="case">
+  <b>1a. Logo: &lt;a&gt;&lt;img&gt;&lt;/a&gt; về trang chủ</b>
+  <a href="#" data-t="logo"><img alt="logo" width="140" height="40"
+    src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='40'%3E%3Crect width='140' height='40' fill='%23f60'/%3E%3Ctext x='10' y='26' font-size='18' fill='%23fff'%3ELOGO%3C/text%3E%3C/svg%3E"></a>
+  <div class="expect">Phải: ô 140x40 giữ nguyên cỡ, giữa là <b>placeholder viền mờ</b>, không thấy chữ LOGO. Vẫn <b class="hit">bấm được</b>.</div>
+</div>
+
+<div class="case">
+  <b>1b. Avatar người dùng trong link profile</b>
+  <a href="#" data-t="avatar"><img alt="avatar" width="40" height="40" style="border-radius:50%"
+    src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Ccircle cx='20' cy='20' r='20' fill='%23093'/%3E%3C/svg%3E"></a>
+  <span>Nguyễn Văn A</span>
+  <div class="expect">Phải: ô 40x40 có <b>placeholder viền mờ</b>, không thấy vòng tròn xanh. Tên vẫn hiện, link vẫn <b class="hit">bấm được</b>.</div>
+</div>
+
+<div class="case">
+  <b>2. &lt;button&gt;&lt;svg&gt; icon-only</b>
+  <button data-t="btn-svg"><svg width="48" height="48" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" stroke="#000" stroke-width="2"/></svg></button>
+  <div class="expect">Phải: ô 48x48 có <b>placeholder viền mờ</b> (một cái, không chồng hai lớp), hamburger biến mất. Vẫn <b class="hit">bấm được</b>.</div>
+</div>
+
+<div class="case">
+  <b>2b. Inline &lt;svg&gt; illustration (không nằm trong nút)</b>
+  <svg width="200" height="80" viewBox="0 0 200 80"><rect width="200" height="80" fill="#7cf"/><text x="10" y="46" font-size="20">SVG to</text></svg>
+  <div class="expect">Phải: <b>biến mất hoàn toàn</b>.</div>
+</div>
+
+<div class="case">
+  <b>2c. Logo Facebook: &lt;a role="link"&gt;&lt;svg&gt;</b>
+  <a href="#" role="link" aria-label="Facebook" data-t="fb-logo"><svg viewBox="0 0 36 36" height="40" width="40" fill="#0866ff"><circle cx="18" cy="18" r="18"/></svg></a>
+  <div class="expect">Phải: ô 40x40 có <b>placeholder viền mờ</b>, không thấy hình tròn xanh. Vẫn <b class="hit">bấm được</b>.</div>
+</div>
+
+<div class="case">
+  <b>2d. Avatar Facebook: &lt;svg&gt;&lt;image&gt; + mask, không nằm trong link</b>
+  <div><svg aria-hidden="true" role="none" style="height:36px;width:36px">
+    <mask id="m1"><rect width="36" height="36" rx="8" ry="8" fill="white" x="0" y="0"/></mask>
+    <g mask="url(#m1)"><image x="0" y="0" width="100%" height="100%" preserveAspectRatio="xMidYMid slice"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='36'%3E%3Crect width='36' height='36' fill='%23e0a'/%3E%3C/svg%3E"/></g>
+  </svg></div>
+  <div class="expect">Phải: <b>biến mất hoàn toàn</b>.</div>
+</div>
+
+<div class="case">
+  <b>3. &lt;img&gt; nội dung đứng riêng</b>
+  <img alt="ảnh bài viết" width="200" height="80"
+    src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='80'%3E%3Crect width='200' height='80' fill='%23c00'/%3E%3C/svg%3E">
+  <div class="expect">Phải: <b>biến mất hoàn toàn</b>.</div>
+</div>
+
+<div class="case">
+  <b>4. background-image inline + chữ bên trong</b>
+  <div class="hero" style="background-image: url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%224%22 height=%224%22%3E%3Crect width=%224%22 height=%224%22 fill=%22%230c0%22/%3E%3C/svg%3E')">
+    CHỮ NÀY PHẢI CÒN
+  </div>
+  <div class="expect">Phải: nền mất, <b>chữ vẫn hiện</b> (bug cũ: cả khối biến mất).</div>
+</div>
+
+<div class="case">
+  <b>4b. background-color + color</b>
+  <div style="background:#0866ff;color:#fff;padding:10px">Nền xanh, chữ trắng</div>
+  <div style="background-color:#fe0;padding:10px">
+    <span style="color:#c00">đỏ</span> <span style="color:#0a0">xanh lá</span>
+    <span style="color:purple">tím</span> <a href="#" data-t="link-mau" style="color:#f0f">link tím</a>
+  </div>
+  <div class="expect">Phải: <b>hết nền màu</b>, mọi chữ về màu mặc định, link vẫn <b class="hit">bấm được</b>.</div>
+</div>
+
+<div class="case">
+  <b>5. iframe captcha (whitelist)</b>
+  <iframe src="https://www.google.com/recaptcha/api2/anchor" width="300" height="80" title="recaptcha"></iframe>
+  <div class="expect">Phải: <b>vẫn hiện</b> (dù nội dung có thể lỗi vì thiếu sitekey — chỉ cần thấy khung).</div>
+</div>
+
+<div class="case">
+  <b>6. iframe nhúng thường</b>
+  <iframe src="about:blank" width="300" height="60" title="embed" style="background:#eee"></iframe>
+  <div class="expect">Phải: <b>ẩn</b>.</div>
+</div>
+
+<div class="case">
+  <b>7. canvas</b>
+  <canvas id="cv" width="200" height="60" style="border:1px solid #999"></canvas>
+  <div class="expect">Phải: <b>vẫn hiện</b> và thấy hình vẽ.</div>
+</div>
+
+<div class="case">
+  <b>8. audio autoplay</b>
+  <audio id="au" controls autoplay loop></audio>
+  <div class="expect">Phải: <b>im lặng</b>, không phát. Xem dòng "audio: paused" bên dưới.</div>
+  <div id="auState" class="expect"></div>
+</div>
+
+<div class="case">
+  <b>9. video gọi play() bằng JS sau 2s</b>
+  <video id="vd" width="200" muted loop></video>
+  <div class="expect">Phải: <b>bị pause lại</b>. Xem dòng "video: paused" bên dưới.</div>
+  <div id="vdState" class="expect"></div>
+</div>
+
+<div class="case">
+  <b>10. Form control + scrollbar theo chế độ màu</b>
+  <input placeholder="ô nhập"> <select><option>chọn</option></select>
+  <div class="expect">Tối: nền trang + ô nhập/select <b>tối</b>, chữ sáng. Sáng: ngược lại,
+    kể cả khi Windows đang dark. Hệ thống: khớp cài đặt Windows.</div>
+</div>
+
+<script>
+const log = document.getElementById('log');
+let n = 0;
+document.querySelectorAll('[data-t]').forEach(el => {
+  el.addEventListener('click', e => {
+    e.preventDefault();
+    log.textContent = `#${++n} click OK: ${el.dataset.t}`;
+  });
+});
+
+// canvas phải còn nhìn thấy được
+const cx = document.getElementById('cv').getContext('2d');
+cx.fillStyle = '#06c';
+cx.fillRect(10, 10, 180, 40);
+cx.fillStyle = '#fff';
+cx.font = '16px sans-serif';
+cx.fillText('canvas vẽ được', 24, 36);
+
+// Tone 440Hz 1s làm nguồn audio, không cần file ngoài.
+function toneWav(seconds = 1, freq = 440, rate = 8000) {
+  const n = seconds * rate;
+  const buf = new ArrayBuffer(44 + n);
+  const dv = new DataView(buf);
+  const str = (off, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(off + i, s.charCodeAt(i)); };
+  str(0, 'RIFF'); dv.setUint32(4, 36 + n, true); str(8, 'WAVEfmt ');
+  dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+  dv.setUint32(24, rate, true); dv.setUint32(28, rate, true);
+  dv.setUint16(32, 1, true); dv.setUint16(34, 8, true);
+  str(36, 'data'); dv.setUint32(40, n, true);
+  for (let i = 0; i < n; i++) dv.setUint8(44 + i, 128 + Math.round(100 * Math.sin(2 * Math.PI * freq * i / rate)));
+  let s = '';
+  new Uint8Array(buf).forEach(b => { s += String.fromCharCode(b); });
+  return 'data:audio/wav;base64,' + btoa(s);
+}
+const src = toneWav();
+const au = document.getElementById('au');
+const vd = document.getElementById('vd');
+au.src = src;
+vd.src = src;
+
+setTimeout(() => { au.play().catch(() => {}); vd.play().catch(() => {}); }, 2000);
+setInterval(() => {
+  document.getElementById('auState').textContent = 'audio: ' + (au.paused ? 'paused' : 'PLAYING');
+  document.getElementById('vdState').textContent = 'video: ' + (vd.paused ? 'paused' : 'PLAYING');
+}, 500);
+</script>
+</body>
+</html>
